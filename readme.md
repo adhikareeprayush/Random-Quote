@@ -1,6 +1,7 @@
 # 📜 Random Quotes API
 
 A lightweight Node.js API that serves random and filtered quotes from a CSV file. Supports filtering by author or category, and returns a randomized selection of quotes.
+Live at: [https://random-quote-5t13.onrender.com/](https://random-quote-5t13.onrender.com/)
 
 ---
 
@@ -19,12 +20,12 @@ A lightweight Node.js API that serves random and filtered quotes from a CSV file
 ```
 
 .
-├── quotes.csv # CSV file with quotes
-├── server.js # Main Express server
+├── quotes.csv      # CSV file with quotes
+├── server.js       # Main Express server
 ├── package.json
 └── README.md
 
-```
+````
 
 ---
 
@@ -33,9 +34,9 @@ A lightweight Node.js API that serves random and filtered quotes from a CSV file
 1. Clone the repo:
 
 ```bash
-git clone https://github.com/your-username/random-quotes-api.git
-cd random-quotes-api
-```
+git clone https://github.com/adhikareeprayush/Random-Quote.git
+cd Random-Quote
+````
 
 2. Install dependencies:
 
@@ -112,10 +113,10 @@ GET /api/quotes/random?limit=5
 
 ## 📌 Notes
 
-- All responses are in JSON.
-- Filtering is case-insensitive.
-- Categories are stored and matched in lowercase.
-- Maximum `limit` is capped at 50 to avoid memory overuse.
+* All responses are in JSON.
+* Filtering is case-insensitive.
+* Categories are stored and matched in lowercase.
+* Maximum `limit` is capped at 50 to avoid memory overuse.
 
 ---
 
@@ -132,8 +133,8 @@ curl "http://localhost:3000/api/quotes?author=Seuss&limit=2"
 
 ## 📦 Dependencies
 
-- [Express](https://expressjs.com/)
-- [csv-parser](https://www.npmjs.com/package/csv-parser)
+* [Express](https://expressjs.com/)
+* [csv-parser](https://www.npmjs.com/package/csv-parser)
 
 Install them via:
 
@@ -141,18 +142,9 @@ Install them via:
 npm install express csv-parser
 ```
 
----
-
-## 📝 License
-
-MIT License – feel free to use and modify.
-
----
-
 ## 💡 Future Improvements
 
-- Add support for POSTing new quotes
-- Pagination for large result sets
-- Web interface to browse/search quotes
+* Add support for POSTing new quotes
+* Pagination for large result sets
+* Web interface to browse/search quotes
 
----
