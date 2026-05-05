@@ -5,7 +5,8 @@
   "description": "Serverless Random Quotes HTTP API for Vercel",
   "scripts": {
     "start": "node server.js",
-    "dev": "npx vercel dev"
+    "dev": "npx vercel dev",
+    "build": "node scripts/prep-quotes.js"
   },
   "author": "",
   "license": "ISC",

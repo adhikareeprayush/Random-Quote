@@ -1,6 +1,12 @@
 const express = require("express");
 const { buildQuotesResponse } = require("./lib/buildQuotesResponse");
-const { getQuotes, CSV_FILENAME, resolveCsvPath } = require("./lib/quotesStore");
+const {
+  getQuotes,
+  CSV_FILENAME,
+  resolveCsvPath,
+  getQuotesLoadInfo,
+  FALLBACK_FILENAME,
+} = require("./lib/quotesStore");
 const { applyCors } = require("./lib/cors");
 const { getApiDiscoveryPayload } = require("./lib/apiDiscovery");
 
@@ -103,11 +109,16 @@ app.get("/api/authors", async (req, res) => {
 app.get("/api/health", async (req, res) => {
   try {
     const quotes = await getQuotes();
+    const info = getQuotesLoadInfo();
     res.json({
       ok: true,
       quotes_loaded: quotes.length,
       csv_file: CSV_FILENAME,
       csv_path: resolveCsvPath(),
+      loaded_from: info.loaded_from_path,
+      fallback_used: info.fallback_used,
+      fallback_file: FALLBACK_FILENAME,
+      warning: info.warning,
     });
   } catch (err) {
     res.status(503).json({
@@ -115,6 +126,7 @@ app.get("/api/health", async (req, res) => {
       error: err.message,
       csv_file: CSV_FILENAME,
       csv_path: resolveCsvPath(),
+      fallback_file: FALLBACK_FILENAME,
     });
   }
 });

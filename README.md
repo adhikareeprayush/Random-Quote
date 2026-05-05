@@ -15,6 +15,7 @@ A **serverless** HTTP API that serves quotes from a CSV file. Deploy to [Vercel]
 - **Reproducible random:** optional `seed` (string or number) for deterministic samples
 - **Discovery:** `/api`, `/api/categories`, `/api/authors`, `/api/health`
 - **Local dev:** Express mirror of the same routes (`npm start`)
+- **Deploy-safe fallback:** if `quotes.csv` is missing, empty, or a Git LFS pointer, **`quotes.sample.csv`** is served automatically (disable with `DISABLE_QUOTES_FALLBACK=true`)
 
 ---
 
@@ -31,9 +32,11 @@ A **serverless** HTTP API that serves quotes from a CSV file. Deploy to [Vercel]
 │   └── health.js
 ├── lib/                 # Shared loading, filters, CORS
 ├── quotes.csv           # Your dataset (not committed if large / LFS)
-├── quotes.sample.csv    # Tiny sample for contributors
+├── quotes.sample.csv    # Deploy fallback + tiny dataset for contributors
+├── scripts/
+│   └── prep-quotes.js   # Vercel build: attempts git lfs pull when needed
 ├── server.js            # Local Express server
-├── vercel.json          # Function memory/duration and API headers
+├── vercel.json          # buildCommand, function memory/duration, API headers
 └── package.json
 ```
 
@@ -42,9 +45,9 @@ A **serverless** HTTP API that serves quotes from a CSV file. Deploy to [Vercel]
 ## Deploy on Vercel
 
 1. Push this repo to GitHub (or GitLab / Bitbucket) and [import the project](https://vercel.com/new) in Vercel.
-2. Ensure `quotes.csv` is present in the deployment (see **Large datasets** below).
-3. Optional: set **`QUOTES_CSV_PATH`** in Vercel → Project → Settings → Environment Variables if your file lives at a non-default path (relative to project root or absolute).
-4. Deploy. Routes live under `/api`, `/api/quotes`, etc.
+2. Deploy runs **`npm run build`** (`scripts/prep-quotes.js`) which tries **`git lfs pull`** when `quotes.csv` is still an LFS pointer. If that cannot run, the API still works using **`quotes.sample.csv`** until you ship real CSV bytes (check **`GET /api/health`**).
+3. Optional: set **`QUOTES_CSV_PATH`** or **`DISABLE_QUOTES_FALLBACK`** in Vercel → Project → Settings → Environment Variables.
+4. Routes live under `/api`, `/api/quotes`, etc.
 
 **Local Vercel emulation:**
 
@@ -59,7 +62,18 @@ npx vercel dev
 
 ```bash
 npm install
-# If you do not have the full quotes.csv yet:
+npm start
+```
+
+If `quotes.csv` is still an LFS pointer, the server automatically uses **`quotes.sample.csv`** (see `/api/health`). To use only your real file:
+
+```bash
+git lfs pull
+```
+
+Or point at the sample explicitly:
+
+```bash
 export QUOTES_CSV_PATH=quotes.sample.csv
 npm start
 ```
@@ -85,6 +99,7 @@ quote,author,category
 | Variable | Description |
 |----------|-------------|
 | `QUOTES_CSV_PATH` | Path to CSV (default: `quotes.csv` in project root). Relative paths resolve from `process.cwd()`. |
+| `DISABLE_QUOTES_FALLBACK` | If `true`, do not fall back to `quotes.sample.csv` when the primary CSV is missing, empty, or an LFS pointer (strict errors instead). |
 | `PORT` | Local Express port (default: `3000`). |
 
 ---
@@ -97,7 +112,13 @@ JSON overview of available routes.
 
 ### `GET /api/health`
 
-Load status and quote count. Returns `503` if the CSV cannot be read.
+Load status and quote count. When **`quotes.csv`** is missing, empty, or a **Git LFS pointer**, the API automatically loads **`quotes.sample.csv`** instead (unless **`DISABLE_QUOTES_FALLBACK=true`**). Response fields:
+
+- **`loaded_from`** — path of the file actually read  
+- **`fallback_used`** — `true` if the sample file was used  
+- **`warning`** — human-readable hint when fallback applies  
+
+Returns **`503`** only if both primary and fallback fail.
 
 ### `GET /api/categories`
 
@@ -140,7 +161,31 @@ With **`legacy=true`** and **`limit=1`**, response is a single object instead of
 
 ## Large datasets and Git LFS
 
-If `quotes.csv` is tracked with **Git LFS**, run `git lfs pull` before local runs or ensure LFS files are pulled in CI/Vercel (LFS must be available at build/deploy time).
+### Automatic fallback (`quotes.sample.csv`)
+
+If **`quotes.csv`** is **missing**, **empty**, or a **Git LFS pointer**, the runtime loads **`quotes.sample.csv`** so deploys (including Vercel) still return real quotes. Check **`GET /api/health`**: `fallback_used`, `warning`, and `loaded_from` tell you what happened.
+
+Set **`DISABLE_QUOTES_FALLBACK=true`** when you want failures instead of the sample (e.g. strict production checks).
+
+### Build hook (`npm run build`)
+
+Vercel runs **`npm run build`** before deployment (`vercel.json` → `buildCommand`). That runs **`scripts/prep-quotes.js`**, which attempts **`git lfs pull`** when `quotes.csv` is still an LFS pointer and `.git` exists (so checkout sometimes materializes the real file).
+
+### Why you used to see empty `data`
+
+Committing **`quotes.csv` as LFS** without pulling real bytes meant the parser saw no valid rows. Fallback fixes empty APIs; replace or pull real data when you are ready for production traffic.
+
+**Fix locally**
+
+```bash
+git lfs pull
+```
+
+Confirm the file is real CSV (starts with a header like `quote,author,category`), not `version https://git-lfs.github.com/spec/v1`.
+
+**Ship full data on Vercel**
+
+- Prefer a **plain CSV** under size limits, **or** ensure **`git lfs pull`** succeeds in CI/build, **or** download the CSV from blob storage during **`npm run build`** into `quotes.csv`.
 
 Very large CSVs increase **cold start time** and **memory** use. Tune `vercel.json` → `functions` → `memory` / `maxDuration` if needed. Vercel plan limits apply to bundle size and function resources.
 

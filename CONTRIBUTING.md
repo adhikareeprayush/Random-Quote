@@ -14,7 +14,7 @@ Thanks for helping improve the Random Quotes API. This document describes how to
    - **Express:** `npm start`
    - **Vercel-like:** `npx vercel dev`
 
-If your checkout uses **Git LFS** for `quotes.csv`, run `git lfs pull` so the real CSV is present.
+If your checkout uses **Git LFS** for `quotes.csv`, run `git lfs pull` so the real CSV is present. Until then, the app loads **`quotes.sample.csv`** automatically (unless **`DISABLE_QUOTES_FALLBACK=true`**).
 
 ## Project conventions
 
