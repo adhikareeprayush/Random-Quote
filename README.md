@@ -39,6 +39,7 @@ A **serverless** HTTP API that serves quotes from a CSV file. Deploy to [Vercel]
 │   └── prep-quotes.js   # Vercel build: attempts git lfs pull when needed
 ├── server.js            # Local Express server
 ├── vercel.json          # buildCommand, function memory/duration, API headers
+├── .env.example         # Documented env vars (copy to `.env` locally)
 └── package.json
 ```
 
@@ -48,7 +49,7 @@ A **serverless** HTTP API that serves quotes from a CSV file. Deploy to [Vercel]
 
 1. Push this repo to GitHub (or GitLab / Bitbucket) and [import the project](https://vercel.com/new) in Vercel.
 2. Deploy runs **`npm run build`** (`scripts/prep-quotes.js`) which tries **`git lfs pull`** when `quotes.csv` is still an LFS pointer. If that cannot run, the API still works using **`quotes.sample.csv`** until you ship real CSV bytes (check **`GET /api/health`**).
-3. Optional: set **`QUOTES_CSV_PATH`** or **`DISABLE_QUOTES_FALLBACK`** in Vercel → Project → Settings → Environment Variables.
+3. **Full dataset:** `npm run build` downloads **`quotes.csv`** from a **default GitHub Release URL** in `scripts/prep-quotes.js` (no Vercel env required). Set **`QUOTES_CSV_URL`** only to use a different file. Optional: **`QUOTES_CSV_PATH`**, **`DISABLE_QUOTES_FALLBACK`**.
 4. Routes live under `/api`, `/api/quotes`, etc. The site root **`/`** serves **`public/index.html`** (API overview + live sample).
 
 **Local Vercel emulation:**
@@ -98,11 +99,15 @@ quote,author,category
 
 ## Environment variables
 
-| Variable | Description |
-|----------|-------------|
-| `QUOTES_CSV_PATH` | Path to CSV (default: `quotes.csv` in project root). Relative paths resolve from `process.cwd()`. |
-| `DISABLE_QUOTES_FALLBACK` | If `true`, do not fall back to `quotes.sample.csv` when the primary CSV is missing, empty, or an LFS pointer (strict errors instead). |
-| `PORT` | Local Express port (default: `3000`). |
+Copy **`.env.example`** to **`.env`** for local work. The **`dotenv`** package loads **`.env`** when you run **`npm start`** or **`npm run build`**. On **Vercel**, you only need to set variables below if you want to **override** defaults; production builds already download the default release CSV.
+
+| Variable | Where | Description |
+|----------|--------|-------------|
+| `QUOTES_CSV_URL` | **Build** (optional) | HTTPS URL to download **`quotes.csv`** during `npm run build`. If unset, **`scripts/prep-quotes.js`** uses the **default GitHub Release** URL for this project. |
+| `SKIP_REMOTE_QUOTES_DOWNLOAD` | **Build** (optional) | If `true`, skip the default/env download (e.g. use **`git lfs pull`** locally instead). |
+| `QUOTES_CSV_PATH` | Runtime | Path to CSV (default: `quotes.csv` in project root). Relative paths resolve from `process.cwd()`. |
+| `DISABLE_QUOTES_FALLBACK` | Runtime | If `true`, do not fall back to `quotes.sample.csv` when the primary CSV is missing, empty, or an LFS pointer (strict errors instead). |
+| `PORT` | Local | Express port (default: `3000`). |
 
 ---
 
@@ -171,11 +176,51 @@ Set **`DISABLE_QUOTES_FALLBACK=true`** when you want failures instead of the sam
 
 ### Build hook (`npm run build`)
 
-Vercel runs **`npm run build`** before deployment (`vercel.json` → `buildCommand`). That runs **`scripts/prep-quotes.js`**, which attempts **`git lfs pull`** when `quotes.csv` is still an LFS pointer and `.git` exists (so checkout sometimes materializes the real file).
+Vercel runs **`npm run build`** before deployment (`vercel.json` → `buildCommand`). That runs **`scripts/prep-quotes.js`**, which:
 
-### Why you used to see empty `data`
+1. If **`quotes.csv`** is missing or a Git LFS pointer → **download** from **`QUOTES_CSV_URL`**, or the **default GitHub Release** URL in **`scripts/prep-quotes.js`** (works on Vercel with **no env vars**).
+2. If download is skipped (**`SKIP_REMOTE_QUOTES_DOWNLOAD=true`**) or fails → try **`git lfs pull`** when possible.
 
-Committing **`quotes.csv` as LFS** without pulling real bytes meant the parser saw no valid rows. Fallback fixes empty APIs; replace or pull real data when you are ready for production traffic.
+### Where to host the CSV for free (`QUOTES_CSV_URL`)
+
+You need an **`https://`** URL where **`GET`** returns **raw CSV bytes** (HTTP **200**, body starts with your header row, not an HTML page). Quick check:
+
+```bash
+curl -sSIL "<your-url>" | head -5
+curl -s "<your-url>" | head -1
+```
+
+| Option | Notes |
+|--------|--------|
+| [**GitHub Releases**](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases) | On your repo: **Releases** → **Draft a release** → attach **`quotes.csv`** as a binary → publish → copy the **asset download** URL (`…/releases/download/<tag>/quotes.csv`). Works well for **public** repos and large files. |
+| [**Cloudflare R2**](https://developers.cloudflare.com/r2/get-started/) | S3-compatible storage with a **free tier**; upload the CSV and expose it via a **public bucket** / custom domain so you get a stable **HTTPS** object URL. |
+| [**Supabase Storage**](https://supabase.com/docs/guides/storage/serving/downloads) | Free tier includes storage; use a **public** bucket and the **public URL** for the object. |
+| [**Backblaze B2**](https://www.backblaze.com/b2/cloud-storage.html) | Cloud storage with a free allowance; create a **public** file URL or bucket policy so **`curl`** gets the file directly. |
+
+**Avoid** plain **Google Drive / Dropbox share links** unless you know they return a **direct** file response — many links serve HTML sign-in or redirects, and the build will save garbage instead of CSV.
+
+### Can I push `quotes.csv` to GitHub?
+
+Your LFS pointer metadata is about **138 MB**. **GitHub blocks normal pushes over ~100 MB per file**, so you usually **cannot** drop LFS and commit one file that large.
+
+**Practical options:**
+
+| Approach | When to use |
+|----------|-------------|
+| **Default download** (no env) | **`scripts/prep-quotes.js`** uses the project’s **GitHub Release** URL; Vercel runs **`npm run build`** and gets **`quotes.csv`** automatically. |
+| **`QUOTES_CSV_URL`** override | Use another HTTPS URL (object storage, different release, etc.). |
+| **Smaller CSV in Git** | If you shrink or split the file **under ~100 MB**, adjust **`.gitattributes`** and commit it **without** LFS. |
+| **Keep Git LFS** | Keeps history on GitHub; **build still pulls real bytes** via the default (or overridden) download URL. |
+
+`quotes.sample.csv` is excluded from LFS in **`.gitattributes`** so the fallback always ships with the repo.
+
+### Memory on Vercel
+
+Huge CSVs load into RAM — slow cold starts and possible **OOM**. Increase **`vercel.json`** → **`functions`** → **`memory`** if deploys fail at runtime (within your plan limits).
+
+### Why you used to see empty `data` or tiny `meta.total`
+
+Deploys often only had a **Git LFS pointer** in git; **`npm run build`** now downloads the release CSV by default. Confirm with **`GET /api/health`** (`quotes_loaded`, **`fallback_used`**). Override the URL with **`QUOTES_CSV_URL`** if you host the file elsewhere.
 
 **Fix locally**
 
@@ -185,11 +230,9 @@ git lfs pull
 
 Confirm the file is real CSV (starts with a header like `quote,author,category`), not `version https://git-lfs.github.com/spec/v1`.
 
-**Ship full data on Vercel**
+### Pagination vs full corpus
 
-- Prefer a **plain CSV** under size limits, **or** ensure **`git lfs pull`** succeeds in CI/build, **or** download the CSV from blob storage during **`npm run build`** into `quotes.csv`.
-
-Very large CSVs increase **cold start time** and **memory** use. Tune `vercel.json` → `functions` → `memory` / `maxDuration` if needed. Vercel plan limits apply to bundle size and function resources.
+Each response returns at most **`limit`** rows (max **100**). **`meta.total`** is how many quotes matched your filters in the **loaded** dataset. To walk everything, use **`order=author`**, **`text`**, or **`none`** with **`offset`** + **`limit`** (not **`order=random`**, which ignores **`offset`**).
 
 ---
 
@@ -209,6 +252,7 @@ curl -s "https://YOUR_DEPLOYMENT.vercel.app/api/authors?q=mark&limit=20"
 ## Dependencies
 
 - [csv-parser](https://www.npmjs.com/package/csv-parser) — streaming CSV parse
+- [dotenv](https://www.npmjs.com/package/dotenv) — load **`.env`** for local **`npm start`** / **`npm run build`**
 - [express](https://expressjs.com/) — optional local server only
 
 ---

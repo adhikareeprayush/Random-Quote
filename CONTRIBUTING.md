@@ -6,15 +6,18 @@ Thanks for helping improve the Random Quotes API. This document describes how to
 
 1. Clone the repository.
 2. Install dependencies: `npm install`.
-3. Provide quote data:
+3. Copy **`cp .env.example .env`** and adjust variables if needed (optional for basic dev).
+4. Provide quote data:
    - Copy the sample: `cp quotes.sample.csv quotes.csv`, or  
    - Use your own `quotes.csv`, or  
-   - Set `QUOTES_CSV_PATH` to point at a CSV file (see README).
-4. Run locally:
+   - Set `QUOTES_CSV_PATH` in `.env` to point at a CSV file (see README).
+5. Run locally:
    - **Express:** `npm start`
    - **Vercel-like:** `npx vercel dev`
 
 If your checkout uses **Git LFS** for `quotes.csv`, run `git lfs pull` so the real CSV is present. Until then, the app loads **`quotes.sample.csv`** automatically (unless **`DISABLE_QUOTES_FALLBACK=true`**).
+
+For production deploys on **Vercel**, **`npm run build`** downloads the dataset from the **default GitHub Release URL** in `scripts/prep-quotes.js` (no env vars required). Use **`QUOTES_CSV_URL`** or **`SKIP_REMOTE_QUOTES_DOWNLOAD`** only when you need an override (see README).
 
 ## Project conventions
 
