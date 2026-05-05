@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Public HTTP API for random and filtered quotes. JSON endpoints under /api."
+    />
+    <title>Random Quotes API</title>
+    <style>
+      :root {
+        --bg: #0f1419;
+        --surface: #1a2332;
+        --border: #2d3a4d;
+        --text: #e8eaed;
+        --muted: #9aa5b4;
+        --accent: #7dd3c0;
+        --accent-dim: #4a9d8d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family:
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .wrap {
+        max-width: 42rem;
+        margin: 0 auto;
+        padding: 2.5rem 1.25rem 4rem;
+      }
+
+      h1 {
+        font-size: clamp(1.75rem, 4vw, 2.125rem);
+        font-weight: 650;
+        letter-spacing: -0.02em;
+        margin: 0 0 0.5rem;
+      }
+
+      .lede {
+        color: var(--muted);
+        font-size: 1.05rem;
+        margin: 0 0 2rem;
+      }
+
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.25rem 1.35rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .panel h2 {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        margin: 0 0 0.85rem;
+        font-weight: 600;
+      }
+
+      ul.endpoints {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      ul.endpoints li {
+        margin-bottom: 0.65rem;
+      }
+
+      ul.endpoints li:last-child {
+        margin-bottom: 0;
+      }
+
+      ul.endpoints a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 500;
+        font-family: ui-monospace, "Cascadia Code", "SF Mono", Menlo, monospace;
+        font-size: 0.9rem;
+      }
+
+      ul.endpoints a:hover {
+        text-decoration: underline;
+        color: #9ae8d8;
+      }
+
+      ul.endpoints .hint {
+        display: block;
+        color: var(--muted);
+        font-size: 0.82rem;
+        margin-top: 0.15rem;
+        font-weight: 400;
+      }
+
+      .quote-block {
+        position: relative;
+      }
+
+      .quote-block blockquote {
+        margin: 0;
+        font-size: 1.1rem;
+        font-style: italic;
+        color: var(--text);
+        line-height: 1.55;
+      }
+
+      .quote-block cite {
+        display: block;
+        margin-top: 0.85rem;
+        font-style: normal;
+        font-size: 0.9rem;
+        color: var(--accent-dim);
+      }
+
+      .quote-actions {
+        margin-top: 1rem;
+        display: flex;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      button {
+        cursor: pointer;
+        background: var(--accent);
+        color: var(--bg);
+        border: none;
+        padding: 0.45rem 0.95rem;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+
+      button:hover {
+        filter: brightness(1.08);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .status {
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+
+      .status.err {
+        color: #f0a0a0;
+      }
+
+      footer {
+        margin-top: 2.5rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid var(--border);
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      footer a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Random Quotes API</h1>
+      <p class="lede">
+        JSON HTTP API for random and filtered quotes. All routes are read-only
+        (<code style="color: var(--accent-dim)">GET</code> /
+        <code style="color: var(--accent-dim)">OPTIONS</code>).
+      </p>
+
+      <div class="panel quote-block">
+        <h2>Live sample</h2>
+        <blockquote id="quote-text">Loading…</blockquote>
+        <cite id="quote-author"></cite>
+        <div class="quote-actions">
+          <button type="button" id="btn-another" disabled>Another quote</button>
+          <span class="status" id="quote-status"></span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Endpoints</h2>
+        <ul class="endpoints">
+          <li>
+            <a href="/api">/api</a>
+            <span class="hint">Discovery — lists routes</span>
+          </li>
+          <li>
+            <a href="/api/health">/api/health</a>
+            <span class="hint">Load status and dataset info</span>
+          </li>
+          <li>
+            <a href="/api/quotes/random?limit=1">/api/quotes/random</a>
+            <span class="hint">Random quote(s); try <code>?limit=3</code></span>
+          </li>
+          <li>
+            <a href="/api/quotes?limit=5">/api/quotes</a>
+            <span class="hint">Filtered random set — see repo README for params</span>
+          </li>
+          <li>
+            <a href="/api/categories?counts=true">/api/categories</a>
+            <span class="hint">Categories; add <code>?counts=true</code></span>
+          </li>
+          <li>
+            <a href="/api/authors?limit=20">/api/authors</a>
+            <span class="hint">Author list; filter with <code>?q=name</code></span>
+          </li>
+        </ul>
+      </div>
+
+      <footer>
+        Open the JSON endpoints above directly or from your app. Full query
+        parameters are documented in the repository README.
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        var textEl = document.getElementById("quote-text");
+        var authorEl = document.getElementById("quote-author");
+        var btn = document.getElementById("btn-another");
+        var statusEl = document.getElementById("quote-status");
+
+        function setLoading(loading) {
+          btn.disabled = loading;
+          statusEl.textContent = loading ? "Fetching…" : "";
+          statusEl.classList.remove("err");
+        }
+
+        function showError(msg) {
+          textEl.textContent = "Could not load a quote.";
+          authorEl.textContent = "";
+          statusEl.textContent = msg;
+          statusEl.classList.add("err");
+          btn.disabled = false;
+        }
+
+        function renderQuote(item) {
+          textEl.textContent = '"' + item.quote + '"';
+          authorEl.textContent = "— " + item.author;
+        }
+
+        function extractFirstQuote(data) {
+          if (!data) return null;
+          if (data.quote) return data;
+          if (Array.isArray(data.data) && data.data[0]) return data.data[0];
+          if (Array.isArray(data) && data[0]) return data[0];
+          return null;
+        }
+
+        function fetchQuote() {
+          setLoading(true);
+          fetch("/api/quotes/random?limit=1")
+            .then(function (r) {
+              if (!r.ok) throw new Error("HTTP " + r.status);
+              return r.json();
+            })
+            .then(function (body) {
+              var q = extractFirstQuote(body);
+              if (!q || !q.quote) throw new Error("Unexpected response shape");
+              renderQuote(q);
+              setLoading(false);
+            })
+            .catch(function (e) {
+              showError(e.message || "Request failed");
+            });
+        }
+
+        btn.addEventListener("click", fetchQuote);
+        fetchQuote();
+      })();
+    </script>
+  </body>
+</html>

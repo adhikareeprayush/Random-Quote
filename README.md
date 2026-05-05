@@ -31,6 +31,8 @@ A **serverless** HTTP API that serves quotes from a CSV file. Deploy to [Vercel]
 │   ├── authors.js
 │   └── health.js
 ├── lib/                 # Shared loading, filters, CORS
+├── public/
+│   └── index.html       # Landing page at /
 ├── quotes.csv           # Your dataset (not committed if large / LFS)
 ├── quotes.sample.csv    # Deploy fallback + tiny dataset for contributors
 ├── scripts/
@@ -47,7 +49,7 @@ A **serverless** HTTP API that serves quotes from a CSV file. Deploy to [Vercel]
 1. Push this repo to GitHub (or GitLab / Bitbucket) and [import the project](https://vercel.com/new) in Vercel.
 2. Deploy runs **`npm run build`** (`scripts/prep-quotes.js`) which tries **`git lfs pull`** when `quotes.csv` is still an LFS pointer. If that cannot run, the API still works using **`quotes.sample.csv`** until you ship real CSV bytes (check **`GET /api/health`**).
 3. Optional: set **`QUOTES_CSV_PATH`** or **`DISABLE_QUOTES_FALLBACK`** in Vercel → Project → Settings → Environment Variables.
-4. Routes live under `/api`, `/api/quotes`, etc.
+4. Routes live under `/api`, `/api/quotes`, etc. The site root **`/`** serves **`public/index.html`** (API overview + live sample).
 
 **Local Vercel emulation:**
 
