@@ -257,8 +257,4 @@ curl -s "https://YOUR_DEPLOYMENT.vercel.app/api/authors?q=mark&limit=20"
 
 ---
 
-## License
-
-See `package.json` (`license` field). Add a `LICENSE` file when you publish if needed.
-
 Contributions are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
