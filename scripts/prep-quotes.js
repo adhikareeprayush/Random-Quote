@@ -16,7 +16,7 @@ const { spawnSync } = require("child_process");
 
 const csvPath = path.join(process.cwd(), "quotes.csv");
 
-/** Used when QUOTES_CSV_URL is not set — no Vercel env required for production deploys. */
+/** Forks: replace with your release/asset URL, or rely on QUOTES_CSV_URL / committed CSV. */
 const DEFAULT_QUOTES_CSV_URL =
   "https://github.com/adhikareeprayush/Random-Quote/releases/download/data-v1/quotes.csv";
 

@@ -1,6 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "npm run build",
+  "rewrites": [
+    { "source": "/api", "destination": "/api/discovery" },
+    { "source": "/api/", "destination": "/api/discovery" }
+  ],
   "functions": {
     "api/**/*.js": {
       "memory": 1024,

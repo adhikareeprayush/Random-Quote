@@ -134,7 +134,9 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-app.use(express.static(path.join(__dirname, "public")));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
+});
 
 getQuotes()
   .then(() => {

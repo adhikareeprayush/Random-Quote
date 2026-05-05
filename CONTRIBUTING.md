@@ -17,7 +17,7 @@ Thanks for helping improve the Random Quotes API. This document describes how to
 
 If your checkout uses **Git LFS** for `quotes.csv`, run `git lfs pull` so the real CSV is present. Until then, the app loads **`quotes.sample.csv`** automatically (unless **`DISABLE_QUOTES_FALLBACK=true`**).
 
-For production deploys on **Vercel**, **`npm run build`** downloads the dataset from the **default GitHub Release URL** in `scripts/prep-quotes.js` (no env vars required). Use **`QUOTES_CSV_URL`** or **`SKIP_REMOTE_QUOTES_DOWNLOAD`** only when you need an override (see README).
+For **Vercel** builds, **`scripts/prep-quotes.js`** can download **`quotes.csv`** from **`QUOTES_CSV_URL`** or from **`DEFAULT_QUOTES_CSV_URL`** (forks should replace that constant or set **`QUOTES_CSV_URL`** in project settings). Use **`SKIP_REMOTE_QUOTES_DOWNLOAD`** when you intentionally skip the HTTP step (see README → Data & deployment).
 
 ## Project conventions
 
