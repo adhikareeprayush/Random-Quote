@@ -1,61 +1,131 @@
 const express = require("express");
-const fs = require("fs");
-const csv = require("csv-parser");
+const { buildQuotesResponse } = require("./lib/buildQuotesResponse");
+const { getQuotes, CSV_FILENAME, resolveCsvPath } = require("./lib/quotesStore");
+const { applyCors } = require("./lib/cors");
+const { getApiDiscoveryPayload } = require("./lib/apiDiscovery");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-let quotes = [];
+app.use((req, res, next) => {
+  applyCors(req, res);
+  next();
+});
 
-// Utility: Get random elements from an array using Fisher-Yates shuffle
-function getRandomItems(array, count) {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+async function sendQuotes(res, query) {
+  const { data, meta, f } = await buildQuotesResponse(query || {});
+  if (f.legacy) {
+    res.json(data);
+    return;
   }
-  return shuffled.slice(0, count);
+  res.json(f.includeMeta ? { data, meta } : { data });
 }
 
-// Load quotes from CSV and start server *after loading is complete*
-fs.createReadStream("quotes.csv")
-  .pipe(csv())
-  .on("data", (row) => {
-    row.category = row.category.split(",").map((c) => c.trim().toLowerCase());
-    quotes.push(row);
-  })
-  .on("end", () => {
-    console.log("CSV loaded successfully. Starting server...");
+app.get("/api", (req, res) => {
+  res.json(getApiDiscoveryPayload());
+});
 
-    // GET filtered quotes with optional limit
-    app.get("/api/quotes", (req, res) => {
-      const { author, category, limit } = req.query;
-      let filtered = [...quotes];
+app.get("/api/quotes", async (req, res) => {
+  try {
+    await sendQuotes(res, req.query);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load quotes", message: err.message });
+  }
+});
 
-      if (author) {
-        filtered = filtered.filter((q) =>
-          q.author.toLowerCase().includes(author.toLowerCase())
-        );
+app.get("/api/quotes/random", async (req, res) => {
+  try {
+    const q = { ...req.query, order: "random" };
+    if (q.limit == null && req.query.limit == null) q.limit = "1";
+    const { data, meta, f } = await buildQuotesResponse(q);
+    if (f.legacy) {
+      res.json(data.length === 1 ? data[0] : data);
+      return;
+    }
+    res.json(f.includeMeta ? { data, meta } : { data });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load quotes", message: err.message });
+  }
+});
+
+app.get("/api/categories", async (req, res) => {
+  try {
+    const quotes = await getQuotes();
+    const counts = new Map();
+    for (const q of quotes) {
+      for (const c of q.category) {
+        counts.set(c, (counts.get(c) || 0) + 1);
       }
+    }
+    const withCounts = req.query.counts === "true" || req.query.counts === "1";
+    const names = [...counts.keys()].sort((a, b) => a.localeCompare(b));
+    const payload = withCounts
+      ? { data: names.map((name) => ({ name, count: counts.get(name) })) }
+      : { data: names };
+    res.json({ ...payload, meta: { total_categories: names.length } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load categories", message: err.message });
+  }
+});
 
-      if (category) {
-        filtered = filtered.filter((q) =>
-          q.category.includes(category.toLowerCase())
-        );
-      }
+function parseAuthorsLimit(v, max = 500) {
+  if (v == null || v === "") return 100;
+  const n = parseInt(String(v), 10);
+  if (!Number.isFinite(n)) return 100;
+  return Math.min(max, Math.max(1, n));
+}
 
-      const resultLimit = Math.min(parseInt(limit) || 10, 50); // cap limit
-      res.json(getRandomItems(filtered, resultLimit)); // randomize!
+app.get("/api/authors", async (req, res) => {
+  try {
+    const q = req.query.q ? String(req.query.q).trim() : null;
+    const qLower = q ? q.toLowerCase() : null;
+    const limit = parseAuthorsLimit(req.query.limit);
+    const quotes = await getQuotes();
+    const authorByKey = new Map();
+    for (const row of quotes) {
+      const key = row.author.toLowerCase();
+      if (!authorByKey.has(key)) authorByKey.set(key, row.author);
+    }
+    let authors = [...authorByKey.values()].sort((a, b) => a.localeCompare(b));
+    if (qLower) authors = authors.filter((a) => a.toLowerCase().includes(qLower));
+    const total = authors.length;
+    authors = authors.slice(0, limit);
+    res.json({ data: authors, meta: { total, returned: authors.length, limit } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load authors", message: err.message });
+  }
+});
+
+app.get("/api/health", async (req, res) => {
+  try {
+    const quotes = await getQuotes();
+    res.json({
+      ok: true,
+      quotes_loaded: quotes.length,
+      csv_file: CSV_FILENAME,
+      csv_path: resolveCsvPath(),
     });
-
-    // GET random quotes (single or multiple)
-    app.get("/api/quotes/random", (req, res) => {
-      const limit = Math.min(parseInt(req.query.limit) || 1, 50);
-      const randomQuotes = getRandomItems(quotes, limit);
-      res.json(limit === 1 ? randomQuotes[0] : randomQuotes);
+  } catch (err) {
+    res.status(503).json({
+      ok: false,
+      error: err.message,
+      csv_file: CSV_FILENAME,
+      csv_path: resolveCsvPath(),
     });
+  }
+});
 
+getQuotes()
+  .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running at http://localhost:${PORT}`);
     });
+  })
+  .catch((err) => {
+    console.error("Failed to load quotes CSV:", err.message);
+    process.exit(1);
   });
